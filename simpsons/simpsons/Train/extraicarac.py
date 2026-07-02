@@ -121,9 +121,7 @@ def save_dataframe_to_csv(df, save_path, file_name, model_name):
     df.to_csv(full_path, index=False)
     print(f"Arquivos do modelo {model_name} salvos em: {full_path}")
 
-# =====================================================================
-# NOVA FUNÇÃO: ORGANIZA AS IMAGENS EM PASTAS ANTES DA EXTRAÇÃO
-# =====================================================================
+# organiza as imagens soltas em subpastas por personagem antes de extrair
 def organizar_imagens_em_pastas(pasta_base):
     print("[-] A organizar imagens em subpastas...")
     arquivos_movidos = 0
@@ -159,17 +157,11 @@ if __name__ == "__main__":
         'ViT_large', 
     ]
     
-    # -----------------------------------------------------------------
-    # ATENÇÃO: METE AQUI O CAMINHO DA TUA PASTA DOS SIMPSONS
-    # (Onde estão as imagens .bmp todas misturadas)
-    # -----------------------------------------------------------------
     fonte_folder = './' 
     salvar_folder = './' # Onde queres que o CSV seja guardado
     
-    # 1º PASSO: Organiza a confusão toda
     organizar_imagens_em_pastas(fonte_folder)
     
-    # 2º PASSO: Extrai as features tal como o professor definiu
     for model_choice in model_choices:
         try:
             print(f"Processando com o modelo: {model_choice}")

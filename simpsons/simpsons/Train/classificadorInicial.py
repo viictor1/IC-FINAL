@@ -1,15 +1,9 @@
 """
-Trabalho Final - Inteligência Computacional
-UTFPR-CM | Prof. Dr. Diego Bertolini
-Métodos Avançados de Fusão de Classificadores
-  - Hard Voting (baseline)
-  - Soft Voting (baseline)
-  - Weighted Hard Voting (pesos = acurácia individual)
-  - Top-K Ensemble (apenas os K melhores classificadores)
-  - Stacking (meta-aprendizado com LogisticRegression)
+Fusao de classificadores da base Simpsons.
 
-Execute DEPOIS do script principal (simpsons_classificacao.py).
-Depende do arquivo resultados.csv gerado pelo script principal.
+Testa cinco jeitos de combinar os 20 classificadores: hard voting, soft voting,
+soft voting ponderado pela acuracia, top-K (so os K melhores) e stacking.
+Roda depois do simpsons_classificacao.py, que gera o resultados.csv.
 """
 
 import pandas as pd
@@ -33,9 +27,7 @@ from sklearn.neural_network import MLPClassifier
 
 warnings.filterwarnings('ignore')
 
-# ============================================================
-# 1. RECARREGA OS DADOS (igual ao script principal)
-# ============================================================
+# le as features e prepara X, y
 print("=" * 60)
 print("  MÉTODOS AVANÇADOS DE FUSÃO — SIMPSONS")
 print("=" * 60)
@@ -52,9 +44,7 @@ print(f"    {X.shape[0]} amostras, {X.shape[1]} features, {len(le.classes_)} cla
 
 cv = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
 
-# ============================================================
-# 2. POOL (mesmo do script principal)
-# ============================================================
+# mesmos 20 classificadores do script principal
 pool = []
 for k in [1, 3, 5, 7]:
     pool.append((f'kNN (k={k})', KNeighborsClassifier(n_neighbors=k)))
@@ -69,19 +59,15 @@ for n in [10, 50, 100, 200]:
 for topo, desc in zip([(50,), (100,), (50, 25), (100, 50)], ['(50)', '(100)', '(50,25)', '(100,50)']):
     pool.append((f'MLP {desc}', MLPClassifier(hidden_layer_sizes=topo, max_iter=500, random_state=42)))
 
-# ============================================================
-# 3. CARREGA RESULTADOS INDIVIDUAIS (do script anterior)
-# ============================================================
+# pega as acuracias individuais ja calculadas (viram peso mais pra frente)
 print("\n[2] Carregando acurácias individuais de resultados.csv...")
-df_res = pd.read_csv('resultados.csv').dropna(subset=['Tempo (s)'])  # exclui linhas dos ensembles
+df_res = pd.read_csv('resultados.csv').dropna(subset=['Tempo (s)'])  # tira as linhas de voting
 print(f"    {len(df_res)} classificadores carregados")
 
-# Mapeia nome -> acurácia (para usar como peso)
+# nome -> acuracia, pra usar como peso
 acc_individual = dict(zip(df_res['Classificador'], df_res['Acurácia (%)'] / 100))
 
-# ============================================================
-# 4. BASELINES (referência rápida)
-# ============================================================
+# hard e soft voting simples
 print("\n[3] Calculando baselines (Hard/Soft Voting)...")
 
 ens_hard = VotingClassifier(estimators=pool, voting='hard')
@@ -96,11 +82,7 @@ acc_soft = accuracy_score(y, y_pred_soft) * 100
 f1_soft  = f1_score(y, y_pred_soft, average='macro') * 100
 print(f"    Soft Voting:  Acc={acc_soft:.2f}%  F1={f1_soft:.2f}%")
 
-# ============================================================
-# 5. WEIGHTED SOFT VOTING
-#    Peso de cada classificador = sua acurácia no CV individual
-#    Classificadores melhores têm mais influência na decisão final
-# ============================================================
+# soft voting dando mais peso pros que foram melhores sozinhos
 print("\n[4] Weighted Soft Voting (peso = acurácia individual)...")
 
 pesos = [acc_individual.get(nome, 0.5) for nome, _ in pool]
@@ -114,11 +96,7 @@ acc_weighted = accuracy_score(y, y_pred_weighted) * 100
 f1_weighted  = f1_score(y, y_pred_weighted, average='macro') * 100
 print(f"\n    Weighted Soft Voting:  Acc={acc_weighted:.2f}%  F1={f1_weighted:.2f}%")
 
-# ============================================================
-# 6. TOP-K ENSEMBLES
-#    Seleção dos K melhores classificadores individuais
-#    Testa K = 5, 10, 15 para encontrar o ponto ótimo
-# ============================================================
+# top-K: usa so os K melhores individuais, variando o K
 print("\n[5] Top-K Ensemble (seleciona apenas os K melhores)...")
 
 df_sorted = df_res.sort_values('Acurácia (%)', ascending=False)
@@ -139,24 +117,17 @@ for k in [5, 8, 10, 12, 15]:
 df_topk = pd.DataFrame(resultados_topk)
 melhor_topk = df_topk.loc[df_topk['Acurácia (%)'].idxmax()]
 
-# ============================================================
-# 7. STACKING (meta-aprendizado)
-#    Nível 0: os 20 classificadores
-#    Nível 1: Regressão Logística treinada nas predições do nível 0
-#    O meta-learner aprende QUAIS classificadores confiar mais
-# ============================================================
+# stacking: os 20 na base e uma regressao logistica decidindo em cima
 print("\n[6] Stacking com Regressão Logística como meta-learner...")
 
-# Para stacking, usamos apenas os classificadores com probability=True
-# e que não são repetitivos demais. Usamos o pool completo (scikit-learn
-# cuida do passthrough automaticamente).
+# usa o pool completo; o sklearn cuida do passthrough
 meta_learner = LogisticRegression(max_iter=1000, random_state=42, C=1.0)
 
 stacking = StackingClassifier(
     estimators=pool,
     final_estimator=meta_learner,
-    cv=5,           # CV interno para gerar as meta-features
-    passthrough=True,  # inclui X original junto das predições como features do meta-learner
+    cv=5,           # cv interno pra gerar as meta-features
+    passthrough=True,  # passa o X original junto das predicoes
     n_jobs=-1
 )
 
@@ -165,9 +136,7 @@ acc_stack = accuracy_score(y, y_pred_stack) * 100
 f1_stack  = f1_score(y, y_pred_stack, average='macro') * 100
 print(f"    Stacking (LR meta):  Acc={acc_stack:.2f}%  F1={f1_stack:.2f}%")
 
-# ============================================================
-# 8. TABELA COMPARATIVA FINAL
-# ============================================================
+# tabela juntando tudo
 melhor_ind_acc = df_res['Acurácia (%)'].max()
 melhor_ind_nome = df_res.loc[df_res['Acurácia (%)'].idxmax(), 'Classificador']
 
@@ -190,12 +159,10 @@ for nome, acc, f1 in metodos:
     print(f"  {nome:<35} {acc:>12.2f} {f1:>12.2f}   (Δ{delta:+.2f}%)")
 print("=" * 65)
 
-# ============================================================
-# 9. GRÁFICOS
-# ============================================================
+# graficos
 print("\n[7] Gerando gráficos comparativos...")
 
-# --- 9.1: Comparativo de todos os métodos de fusão ---
+# comparativo geral dos metodos de fusao
 nomes_fusao = [
     f'Melhor Individual\n({melhor_ind_nome})',
     'Hard Voting\n(20 clf)',
@@ -230,7 +197,7 @@ plt.savefig('fig7_comparativo_fusao.png', dpi=300)
 plt.close()
 print("    -> fig7_comparativo_fusao.png")
 
-# --- 9.2: Efeito do K no Top-K Ensemble ---
+# efeito do K no top-K
 fig, ax = plt.subplots(figsize=(8, 4))
 ax.plot(df_topk['K'], df_topk['Acurácia (%)'], marker='o', color='#55A868',
         linewidth=2, markersize=8, label='Acurácia')
@@ -249,7 +216,7 @@ plt.savefig('fig8_topk_ensemble.png', dpi=300)
 plt.close()
 print("    -> fig8_topk_ensemble.png")
 
-# --- 9.3: Matriz de confusão do melhor método de fusão ---
+# matriz de confusao do melhor metodo de fusao
 accs_todos = [acc_hard, acc_soft, acc_weighted, melhor_topk['Acurácia (%)'], acc_stack]
 y_preds    = [y_pred_hard, y_pred_soft, y_pred_weighted, None, y_pred_stack]
 nomes_todos = ['Hard Voting', 'Soft Voting', 'Weighted Soft Voting', f'Top-{int(melhor_topk["K"])} Ensemble', 'Stacking']
@@ -258,7 +225,7 @@ idx_melhor = np.argmax(accs_todos)
 if y_preds[idx_melhor] is not None:
     y_pred_melhor_fusao = y_preds[idx_melhor]
 else:
-    # Recalcula Top-K se for o melhor
+    # se o melhor for o top-K, refaz a predicao
     k_melhor = int(melhor_topk['K'])
     top_nomes = df_sorted['Classificador'].head(k_melhor).tolist()
     top_pool  = [(n, pool_dict[n]) for n in top_nomes if n in pool_dict]
@@ -280,9 +247,7 @@ plt.savefig('fig9_matriz_melhor_fusao.png', dpi=300)
 plt.close()
 print(f"    -> fig9_matriz_melhor_fusao.png  ({nomes_todos[idx_melhor]})")
 
-# ============================================================
-# 10. EXPORTAÇÃO
-# ============================================================
+# salva a tabela de fusao
 df_fusao = pd.DataFrame([
     {'Método': 'Hard Voting (20 clf)',         'Acurácia (%)': acc_hard,     'F1-Score Macro (%)': f1_hard},
     {'Método': 'Soft Voting (20 clf)',          'Acurácia (%)': acc_soft,     'F1-Score Macro (%)': f1_soft},
@@ -301,11 +266,7 @@ print("    fig8_topk_ensemble.png")
 print("    fig9_matriz_melhor_fusao.png")
 print("=" * 60)
 
-# ============================================================
-# 11. PROTOCOLO B — VALIDAÇÃO (holdout)
-#     Treina os ensembles no Train completo e avalia no Valid.
-#     Exigido pelo enunciado: reportar teste E validação.
-# ============================================================
+# validacao (holdout): treina no Train inteiro e testa no Valid.
 VALID_CSV = 'result_final_ViT_large_valid.csv'
 if os.path.exists(VALID_CSV):
     print("\n[8] Protocolo B — Validação (holdout)...")
@@ -330,7 +291,7 @@ if os.path.exists(VALID_CSV):
     yps_va = _aval_va('Soft Voting (20 clf)', VotingClassifier(estimators=pool, voting='soft'))
     _aval_va('Weighted Soft Voting (20 clf)', VotingClassifier(estimators=pool, voting='soft', weights=pesos))
 
-    # Top-K na validação: escolhe o melhor K (mesmo conjunto testado no CV)
+    # top-K na validacao: testa os mesmos K e fica com o melhor
     melhor_topk_va = None
     for k in [5, 8, 10, 12, 15]:
         top_nomes = df_sorted['Classificador'].head(k).tolist()
@@ -353,10 +314,10 @@ if os.path.exists(VALID_CSV):
     df_fusao_va.to_csv('resultados_fusao_valid.csv', index=False, float_format='%.2f')
     print("    -> resultados_fusao_valid.csv")
 
-    # Matriz de confusão do melhor método de fusão na validação
+    # matriz de confusao do melhor metodo na validacao
     idx_best_va = df_fusao_va['Acurácia (%)'].idxmax()
     nome_best_va = df_fusao_va.loc[idx_best_va, 'Método']
-    # recalcula predição do melhor (cobre Hard/Soft direto; Top-K/Stacking refazem)
+    # refaz a predicao do melhor (hard/soft ja tem; os outros recalculam)
     if nome_best_va.startswith('Hard'):
         yp_best_va = yph_va
     elif nome_best_va.startswith('Soft'):

@@ -1,15 +1,13 @@
 """
-Extração de deep features (ViT-large) para o conjunto de VALIDAÇÃO.
+Extrai as deep features do ViT-large para o conjunto de validacao (Valid).
 
-Replica exatamente a lógica de extração do ViT_large usada em extraicarac.py
-(mean pooling do last_hidden_state -> vetor 1024-D), mas de forma autossuficiente,
-sem depender de open_clip/timm (não necessários para o ViT).
+Faz a mesma extracao do ViT_large do extraicarac.py (media do last_hidden_state,
+vetor de 1024-D), mas so com transformers, sem precisar de open_clip/timm.
 
-O conjunto de Train já foi extraído em result_final_ViT_large.csv; aqui geramos o
-equivalente para o conjunto Valid, exigido pelo enunciado ("reportar resultados
-para ambos os conjuntos de teste e validação").
+O Train ja foi extraido em result_final_ViT_large.csv; aqui geramos o mesmo pro
+Valid, porque o enunciado pede pra reportar teste e validacao.
 
-Saída: result_final_ViT_large_valid.csv  (95 amostras x 1024 features)
+Saida: result_final_ViT_large_valid.csv (95 amostras x 1024 features).
 """
 
 import os

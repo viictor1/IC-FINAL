@@ -1,28 +1,14 @@
 """
-Trabalho Final - Inteligência Computacional
-UTFPR-CM | Prof. Dr. Diego Bertolini
+Classificacao da base Simpsons (5 classes).
 
-Script PRINCIPAL de classificação — base Simpsons (5 classes).
+Usa as deep features do ViT-large (1024-D) geradas pelo extraicarac.py e roda
+20 classificadores das 5 familias pedidas (k-NN, arvore, SVM, RF e MLP).
 
-Características: deep features ViT-large (1024-D) extraídas por extraicarac.py.
-Pool de 20 classificadores cobrindo as 5 famílias exigidas
-(k-NN, Árvore de Decisão, SVM, Random Forest, MLP).
+Faz as duas avaliacoes que o enunciado pede: 10-fold cross-validation no Train
+e um holdout no Valid (treina no Train inteiro e testa no Valid).
 
-Dois protocolos de avaliação (enunciado pede ambos os conjuntos):
-  [A] TESTE      -> 10-fold cross-validation (Stratified) sobre o Train.
-  [B] VALIDAÇÃO  -> treino no Train completo, avaliação no holdout Valid
-                    (divisão proposta nos arquivos da base).
-
-Saídas:
-  resultados.csv            (individuais + Hard/Soft voting, 10-fold CV)
-  resultados_valid.csv      (individuais + Hard/Soft voting, holdout Valid)
-  fig1_comparativo_acuracia.png   fig2_comparativo_f1.png
-  fig3_matriz_melhor_individual.png
-  fig4_matriz_hard_voting.png     fig5_matriz_soft_voting.png
-  fig6_media_por_familia.png
-  fig3b/4b/5b_*_valid.png   (matrizes do conjunto de validação, se existir)
-
-Execute ANTES de classificadorInicial.py (fusão avançada).
+Gera resultados.csv / resultados_valid.csv e as figuras fig1..fig6 (+ fig3b/4b/5b).
+Rodar antes do classificadorInicial.py.
 """
 
 import os
@@ -49,9 +35,7 @@ TRAIN_CSV = os.path.join(HERE, "result_final_ViT_large.csv")
 VALID_CSV = os.path.join(HERE, "result_final_ViT_large_valid.csv")
 
 
-# ------------------------------------------------------------------
-# Utilidades
-# ------------------------------------------------------------------
+# funcoes auxiliares
 def carregar(csv_path, scaler=None, le=None, fit=False):
     """Carrega um CSV de features. Deriva a classe pelo nome da subpasta."""
     df = pd.read_csv(csv_path)
@@ -145,9 +129,7 @@ def barras_horizontais(df, coluna, titulo, arquivo, ref=None):
     plt.close()
 
 
-# ------------------------------------------------------------------
-# Avaliação
-# ------------------------------------------------------------------
+# avaliacao
 def avaliar_cv(pool, X, y, cv):
     """Protocolo A: 10-fold CV. Retorna DataFrame e predições de voting."""
     import time
