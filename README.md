@@ -33,6 +33,7 @@ pip install pandas scikit-learn matplotlib seaborn transformers timm tqdm Pillow
 Depois, dentro de `simpsons/simpsons/Train/`, roda nesta ordem:
 
 ```bash
+python extraicarac.py              # gera as features do Train
 python extrai_valid.py             # gera as features do Valid
 python simpsons_classificacao.py   # 20 classificadores -> resultados.csv, fig1..fig6
 python classificadorInicial.py     # fusao -> resultados_fusao.csv, fig7..fig9
